@@ -1,6 +1,8 @@
 """
-stm32_driver.py - Pilote Python minimal pour le firmware STM32
-Trame : [0xAA] [CMD_ID] [LEN] [PAYLOAD...] [CRC8] [0x55]   (CRC8 poly 0x07 sur CMD+LEN+PAYLOAD)
+stm32_driver.py - Pilote Python pour le firmware STM32 (via passerelle ESP32-C3 ou ST-LINK)
+
+Trame : [0xA5] [CMD] [LEN] [PAYLOAD...] [CRC8]
+CRC8  : CRC-8/SMBUS (poly 0x07, init 0x00) sur CMD + LEN + PAYLOAD
 
     pip install pyserial
     python stm32_driver.py COM5 ping
@@ -11,8 +13,8 @@ import struct
 import sys
 import time
 
-SOF, EOF = 0xAA, 0x55
-MAX_PAYLOAD = 28
+SOF = 0xA5
+MAX_PAYLOAD = 32
 
 CMD_PING = 0x01
 CMD_GET_TEMP = 0x02
@@ -21,6 +23,8 @@ CMD_GET_ADC = 0x05
 CMD_SET_PWM = 0x09
 CMD_GET_ALL = 0x0A
 CMD_ERROR = 0xFF
+
+ERR_NAMES = {1: "commande inconnue", 2: "longueur invalide", 3: "paramètre invalide"}
 
 
 class Stm32Error(Exception):
@@ -40,11 +44,11 @@ def crc8(data: bytes) -> int:
     return crc
 
 
-def build_frame(cmd_id: int, payload: bytes = b"") -> bytes:
+def build_frame(cmd: int, payload: bytes = b"") -> bytes:
     if len(payload) > MAX_PAYLOAD:
-        raise ValueError("payload trop long")
-    body = bytes([cmd_id, len(payload)]) + payload
-    return bytes([SOF]) + body + bytes([crc8(body), EOF])
+        raise ValueError(f"payload trop long (max {MAX_PAYLOAD})")
+    body = bytes([cmd, len(payload)]) + payload
+    return bytes([SOF]) + body + bytes([crc8(body)])
 
 
 class Stm32:
@@ -53,9 +57,9 @@ class Stm32:
             import serial
             ser = serial.Serial()
             ser.port, ser.baudrate, ser.timeout = port, baudrate, 0.05
-            ser.dtr = ser.rts = False          # évite de reset l'ESP32-C3 à l'ouverture
+            ser.dtr = ser.rts = False        # évite de reset l'ESP32-C3 à l'ouverture
             ser.open()
-            time.sleep(1.0)
+            time.sleep(1.0)                  # laisse la passerelle se stabiliser
         self.ser = ser
         self.timeout = timeout
         self._buf = bytearray()
@@ -69,9 +73,9 @@ class Stm32:
     def __exit__(self, *exc):
         self.close()
 
-    # ------------------------------------------------------------------ bas niveau
+    # ------------------------------------------------------------ bas niveau
     def _extract_frame(self):
-        """Cherche une trame valide dans le buffer. Retourne (cmd_id, payload) ou None."""
+        """Cherche une trame valide dans le buffer -> (cmd, payload) ou None."""
         buf = self._buf
         while True:
             if SOF not in buf:
@@ -82,22 +86,22 @@ class Stm32:
                 return None
             length = buf[2]
             if length > MAX_PAYLOAD:
-                del buf[0]
+                del buf[0]                   # faux SOF : on se resynchronise
                 continue
-            total = length + 5
+            total = length + 4               # SOF + CMD + LEN + PAYLOAD + CRC
             if len(buf) < total:
                 return None
             frame = bytes(buf[:total])
-            if frame[-1] == EOF and crc8(frame[1:-2]) == frame[-2]:
+            if crc8(frame[1:-1]) == frame[-1]:
                 del buf[:total]
                 return frame[1], frame[3:3 + length]
-            del buf[0]                          # faux SOF : on se resynchronise
+            del buf[0]
 
-    def request(self, cmd_id: int, payload: bytes = b"") -> bytes:
-        """Envoie une commande, retourne le payload de la réponse."""
+    def request(self, cmd: int, payload: bytes = b"") -> bytes:
+        """Envoie une commande et retourne le payload de la réponse."""
         self.ser.reset_input_buffer()
         self._buf.clear()
-        self.ser.write(build_frame(cmd_id, payload))
+        self.ser.write(build_frame(cmd, payload))
 
         deadline = time.monotonic() + self.timeout
         while time.monotonic() < deadline:
@@ -106,13 +110,14 @@ class Stm32:
                 self._buf += self.ser.read(self.ser.in_waiting or 1)
                 continue
             rid, data = frame
-            if rid == cmd_id:
+            if rid == cmd:
                 return data
-            if rid == CMD_ERROR and data[:1] == bytes([cmd_id]):
-                raise Stm32Error(f"commande 0x{cmd_id:02X} rejetée par le firmware")
-        raise Stm32Timeout(f"pas de réponse à la commande 0x{cmd_id:02X}")
+            if rid == CMD_ERROR and data[:1] == bytes([cmd]):
+                code = data[1] if len(data) > 1 else 0
+                raise Stm32Error(f"commande 0x{cmd:02X} rejetée : {ERR_NAMES.get(code, code)}")
+        raise Stm32Timeout(f"pas de réponse à la commande 0x{cmd:02X}")
 
-    # ------------------------------------------------------------------ commandes
+    # ------------------------------------------------------------ commandes
     def ping(self) -> bool:
         self.request(CMD_PING)
         return True
@@ -136,7 +141,7 @@ class Stm32:
         return {"temp": temp, "vbat": vbat, "adc": [a0, a1, a2]}
 
 
-# ---------------------------------------------------------------------- CLI
+# ---------------------------------------------------------------- CLI
 def main():
     if len(sys.argv) < 3:
         print(__doc__)
