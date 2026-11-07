@@ -2,26 +2,30 @@
  * crc.c
  *
  *  Created on: 15 oct. 2026
- *      Author: Anton
+ *      Author: antokly
  */
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
 
 static const uint8_t crc8_table[256] = {
-    // Table CRC8-CCITT poly 0x07 — génère-la une fois avec un script,
-    // je te la fournis si besoin, ou calcul direct sans table (plus lent mais plus simple) :
+    // Table CRC8-CCITT
 };
 
-uint8_t crc8(const uint8_t *data, uint8_t len)
+uint8_t crc8_compute(uint8_t crc, uint8_t byte)
 {
-    uint8_t crc = 0x00;
-    for (uint8_t i = 0; i < len; i++)
-    {
-        crc ^= data[i];
-        for (uint8_t b = 0; b < 8; b++)
-            crc = (crc & 0x80) ? (crc << 1) ^ 0x07 : (crc << 1);
+    crc ^= byte;
+    for (uint8_t bit = 0; bit < 8U; bit++) {
+        crc = (crc & 0x80U) ? (uint8_t)((crc << 1) ^ 0x07U) : (uint8_t)(crc << 1);
     }
     return crc;
 }
 
+uint8_t req_crc8(const uint8_t *data, size_t len)
+{
+    uint8_t crc = 0U;
+    while (len--) {
+        crc = crc8_compute(crc, *data++);
+    }
+    return crc;
+}

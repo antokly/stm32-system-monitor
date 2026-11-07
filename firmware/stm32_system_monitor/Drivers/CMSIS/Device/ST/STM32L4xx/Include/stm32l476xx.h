@@ -16681,9 +16681,9 @@ typedef struct
 #define USB_OTG_GUSBCFG_FDMOD_Pos                (30U)
 #define USB_OTG_GUSBCFG_FDMOD_Msk                (0x1UL << USB_OTG_GUSBCFG_FDMOD_Pos) /*!< 0x40000000 */
 #define USB_OTG_GUSBCFG_FDMOD                    USB_OTG_GUSBCFG_FDMOD_Msk     /*!< Forced peripheral mode */
-#define USB_OTG_GUSBCFG_CTXPKT_Pos               (31U)
-#define USB_OTG_GUSBCFG_CTXPKT_Msk               (0x1UL << USB_OTG_GUSBCFG_CTXPKT_Pos) /*!< 0x80000000 */
-#define USB_OTG_GUSBCFG_CTXPKT                   USB_OTG_GUSBCFG_CTXPKT_Msk    /*!< Corrupt Tx packet */
+#define USB_OTG_GUSBCFG_CTXREQ_Pos               (31U)
+#define USB_OTG_GUSBCFG_CTXREQ_Msk               (0x1UL << USB_OTG_GUSBCFG_CTXREQ_Pos) /*!< 0x80000000 */
+#define USB_OTG_GUSBCFG_CTXPKT                   USB_OTG_GUSBCFG_CTXREQ_Msk    /*!< Corrupt Tx packet */
 
 /********************  Bit definition for USB_OTG_GRSTCTL register  ********************/
 #define USB_OTG_GRSTCTL_CSRST_Pos                (0U)

@@ -61,34 +61,6 @@ static void MX_USART1_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void send_frame(uint8_t cmd_id, const uint8_t *payload, uint8_t len)
-{
-	uint8_t buf[3 + MAX_PAYLOAD + 2];
-    uint8_t idx = 0;
-
-    buf[idx++] = FRAME_SOF;
-    buf[idx++] = cmd_id;
-    buf[idx++] = len;
-    if (len > 0) {
-        memcpy(&buf[idx], payload, len);
-        idx += len;
-    }
-
-    uint8_t crc_input[2 + MAX_PAYLOAD];
-    crc_input[0] = cmd_id;
-    crc_input[1] = len;
-    memcpy(&crc_input[2], payload, len);
-    buf[idx++] = crc8(crc_input, 2 + len);
-
-    buf[idx++] = FRAME_EOF;
-
-    HAL_UART_Transmit(&huart1, buf, idx, HAL_MAX_DELAY);
-}
-
-void send_error(uint8_t original_cmd_id)
-{
-    send_frame(CMD_ERROR, &original_cmd_id, 1);
-}
 
 /* USER CODE END 0 */
 
@@ -109,7 +81,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -123,7 +94,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  com_init();
   /* USER CODE END 2 */
 
   /* Initialize leds */
@@ -134,9 +105,10 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   while (1)
   {
-	protocol_process();
+	com_process();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

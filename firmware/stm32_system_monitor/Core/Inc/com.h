@@ -2,12 +2,13 @@
  * com.h
  *
  *  Created on: 15 oct. 2026
- *      Author: Anton
+ *      Author: antokly
  */
 
 #ifndef INC_COM_H_
 #define INC_COM_H_
 
-void protocol_process(void);
+void com_init(void);      /* une fois, avant la boucle principale */
+void com_process(void);   /* à chaque tour de while(1)            */
 
 #endif /* INC_COM_H_ */

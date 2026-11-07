@@ -13,8 +13,6 @@ void setup() {
 
   // The UART side you're bridging to/from (sensor, MCU, modem, etc.)
   GatewayUART.begin(BAUDRATE, SERIAL_8N1, RX_PIN, TX_PIN);
-
-  Serial.println("UART <-> USB bridge started");
 }
 
 void loop() {
@@ -22,14 +20,12 @@ void loop() {
   // UART -> USB
   while (GatewayUART.available()) {
     int c = GatewayUART.read();
-    Serial.println("UART -> USB: " + String(c));
     Serial.write((uint8_t)c);
   }
 
   // USB -> UART
   while (Serial.available()) {
     int c = Serial.read();
-    Serial.println("USB -> UART: " + String(c));
     GatewayUART.write((uint8_t)c);
   }
 }
