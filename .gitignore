@@ -20,3 +20,7 @@ build_*/
 Thumbs.db
 # VS Code
 .vscode/
+#python
+__pycache__/
+*.pyc
+/monitor_app/venv/
